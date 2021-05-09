@@ -6,7 +6,7 @@
 #ifndef __PID_H
 #define __PID_H
 
-#define NUM_PID 4
+#define NUM_PID 5
 
 typedef struct{
 	//number
@@ -20,6 +20,8 @@ typedef struct{
 
 	//Set min-max speed
 	volatile float Vmax, Vmin;
+
+	volatile float output;
 
 	//Variable use in calculator function
 	volatile float error_pre, error, integral;

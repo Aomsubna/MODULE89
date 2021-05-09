@@ -30,27 +30,27 @@ float calculator(int num, int input, float setpoint){
 	// Integral term
 	pid->integral += pid->error * pid->Dt;
 	float Iout = pid->Ki * pid->integral;
-	if (pid->integral > 255) {
-		pid->integral = 255;
+	if (pid->integral > 4095) {
+		pid->integral = 4095;
 	}
-	if (pid->integral < -255) {
-		pid->integral = -255;
+	if (pid->integral < -4095) {
+		pid->integral = -4095;
 	}
 	// Derivative term
 	float derivative = (pid->error - pid->error_pre) / pid->Dt;
 	float Dout = pid->Kd * derivative;
 
 	// Calculate total output
-	float output = Pout + Iout + Dout;
+	pid->output = Pout + Iout + Dout;
 
 	// Restrict to max/min
-	if( output > pid->Vmax){
-	     output = pid->Vmax;}
-	else if( output < pid->Vmin){
-	     output = pid->Vmin;}
+	if( pid->output > pid->Vmax){
+		pid->output = pid->Vmax;}
+	else if( pid->output < pid->Vmin){
+		pid->output = pid->Vmin;}
 
 	// Save error to previous error
 	pid->error_pre = pid->error;
 
-	return output;
+	return pid->output;
 }

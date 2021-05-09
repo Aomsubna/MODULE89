@@ -2,71 +2,190 @@
 // Author: KRITTAPAK
 // Project Name: Module8-9
 // Group name: ISUS
+// Modify from StepperHub: https://github.com/omuzychko/StepperHub
 
 #include "STEPPER.h"
+#include "math.h"
+#include "QEI.h"
+#include "PID.h"
 
 static stepper_state steppers[NUM_STEPPER];
 
-void setupStepper(int num, TIM_HandleTypeDef * stepTimer, uint32_t stepChannel, GPIO_TypeDef * dirGPIO, uint16_t dirPIN){
+//Setup variable to use in stepper
+stepper_error Stepper_Setup(int num, TIM_HandleTypeDef * stepTimer, uint32_t stepChannel, GPIO_TypeDef * dirGPIO, uint16_t dirPIN, stepper_mode mode){
 	stepper_state * stepper = &steppers[num];
-	HAL_TIM_PWM_Start(stepTimer, stepChannel);
-	__HAL_TIM_SET_COMPARE(stepTimer, stepChannel, 0);
 	stepper->number = num;
 	stepper->STEP_TIMER = stepTimer;
 	stepper->STEP_CHANNEL = stepChannel;
 	stepper->DIR_GPIO = dirGPIO;
 	stepper->DIR_PIN = dirPIN;
+	stepper->modeStepper = mode;
+	return SERR_OK;
 }
 
-//  HAL_TIM_PWM_Start(&htim13, TIM_CHANNEL_1);
-//  __HAL_TIM_SET_COMPARE(&htim13, TIM_CHANNEL_1, 0);
+//Update Frequency PWM and set duty 50%
+void Stepper_SetStepTimer(stepper_state * stepper){
+	if (stepper -> STEP_TIMER != NULL && stepper -> STEP_TIMER -> Instance != NULL){
+		//    TIM_TypeDef * timer = stepper -> STEP_TIMER -> Instance;
+		uint32_t prescaler = 0;
+		uint32_t timerTicks = STEP_TIMER_CLOCK / stepper -> currentSpeed;
 
-	  //Ft = Fc/(Prescale+1)
-	  //T = (1/Ft)(Cp+1) Cp preiod
-//	  HAL_GPIO_WritePin(GPIOF, GPIO_PIN_9, GPIO_PIN_SET);//Clock wise rotation
-//	  for(uint8_t duty=0; duty<99; duty++){
-//		  __HAL_TIM_SET_COMPARE(&htim13, TIM_CHANNEL_1, duty);
-//		  HAL_Delay(20);
-//	  }
-//	  HAL_GPIO_WritePin(GPIOF, GPIO_PIN_9, GPIO_PIN_RESET);//Clock wise rotation
-//	  	  for(uint8_t duty=0; duty<99; duty++){
-//	  		  __HAL_TIM_SET_COMPARE(&htim13, TIM_CHANNEL_1, duty);
-//	  		  HAL_Delay(20);
-//	  	  }
+		if (timerTicks > 0xFFFF) {
+			// calculate the minimum prescaler
+			prescaler = timerTicks/0xFFFF;
+			timerTicks /= (prescaler + 1);
+		}
+		stepper -> STEP_TIMER -> Instance -> PSC = prescaler;
+		stepper -> STEP_TIMER -> Instance -> ARR = timerTicks;
+		stepper -> STEP_TIMER -> Instance -> CCR1 = timerTicks/2;
+	}
+}
 
+stepper_error Stepper_DefaultState(int num){
+	stepper_state * stepper = &steppers[num];
+	stepper -> status = SS_STOPPED;
+	stepper -> minSpeed = DEFAULT_MIN_SPEED;
+	stepper -> maxSpeed = DEFAULT_MAX_SPEED;
+	stepper -> currentSpeed = stepper -> minSpeed;
 
-//Calculate Frequency
-//Fpwm = Fclk/((ARR+1)*(PSC+1))
+	stepper -> targetPosition = OFFSET;
+//	stepper -> currentPosition = 0;
 
-//Calculate Duty Cycle
-//Duty = CCRx/ARRx
+	Stepper_SetStepTimer(stepper);
+	HAL_TIM_PWM_Start(stepper->STEP_TIMER, stepper->STEP_CHANNEL);
+	enable_Stepper_OE();
 
+	return SERR_OK;
+}
 
-//Change Pulse PWM width
-//Change duty Cycle
-//void user_pwm_setvalue(uint16_t value)
-//{
-//    TIM_OC_InitTypeDef sConfigOC;
-//
-//    sConfigOC.OCMode = TIM_OCMODE_PWM1;
-//    sConfigOC.Pulse = value;
-//    sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
-//    sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
-//    HAL_TIM_PWM_ConfigChannel(&htim4, &sConfigOC, TIM_CHANNEL_1);
-//    HAL_TIM_PWM_Start(&htim4, TIM_CHANNEL_1);
-//}
+stepper_error Stepper_SetMinPosition(int num, uint16_t value){
+	stepper_state * stepper = &steppers[num];
+	stepper->minPosition = value;
+}
 
-//void setPWM(TIM_HandleTypeDef timer, uint32_t channel, uint16_t period,
-//uint16_t pulse)
-//{
-// HAL_TIM_PWM_Stop(&timer, channel); // stop generation of pwm
-// TIM_OC_InitTypeDef sConfigOC;
-// timer.Init.Period = period; // set the period duration
-// HAL_TIM_PWM_Init(&timer); // reinititialise with new period value
-// sConfigOC.OCMode = TIM_OCMODE_PWM1;
-// sConfigOC.Pulse = pulse; // set the pulse duration
-// sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
-// sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
-// HAL_TIM_PWM_ConfigChannel(&timer, &sConfigOC, channel);
-// HAL_TIM_PWM_Start(&timer, channel); // start pwm generation
-//}
+stepper_error Stepper_SetMaxPosition(int num, uint16_t value){
+	stepper_state * stepper = &steppers[num];
+	stepper->maxPosition = value;
+}
+
+stepper_error Stepper_SetMinSpeed(int num, uint16_t value){
+	stepper_state * stepper = &steppers[num];
+	stepper->minSpeed = value;
+}
+
+stepper_error Stepper_SetMaxSpeed(int num, uint16_t value){
+	stepper_state * stepper = &steppers[num];
+	stepper->maxSpeed = value;
+}
+
+stepper_error Stepper_SetTraget(int num, uint16_t value){
+	stepper_state * stepper = &steppers[num];
+	if(stepper->status != SS_STOPPED){
+		if(value<stepper->minPosition){
+			return SERR_LIMIT;
+		}
+		else if (value>stepper->maxPosition) {
+			return SERR_LIMIT;
+		}
+		else {
+			if(stepper->modeStepper == M_ANGLE){
+				stepper->targetPosition = value*ANGLE_TO_ENCODER + OFFSET;
+			}
+			else {
+				stepper->targetPosition = value*SCALAR_TO_ENCODER + OFFSET;
+			}
+			stepper->status = SS_STARTING;
+		}
+	}
+	return SERR_OK;
+}
+
+stepper_error Stepper_SetSpeed(int num, int32_t value){
+	stepper_state * stepper = &steppers[num];
+	if(value<stepper->minSpeed){
+		stepper->currentSpeed = stepper->minSpeed;
+	}
+	else if (value>stepper->maxSpeed) {
+		stepper->currentSpeed = stepper->maxSpeed;
+	}
+	else{
+		stepper->currentSpeed = value;
+	}
+}
+
+void Stepper_Direction(stepper_state * stepper){
+	int32_t input = calculator(stepper->number, Get_Value_Encoder(stepper->number), stepper->targetPosition);
+	Stepper_SetSpeed(stepper->number, abs(input));
+	if(input<0){
+		stepper->status = SS_RUNNING_FORWARD;
+		stepper->DIR_GPIO->BSRR = (uint32_t)stepper->DIR_PIN << (16U); //BSRR change pin to set/reset
+	}
+	else {
+		stepper->status = SS_RUNNING_BACKWARD;
+		stepper->DIR_GPIO->BSRR = stepper->DIR_PIN; //BSRR change pin to set/reset
+	}
+}
+
+void enable_Stepper_OE(){
+	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, 1);
+}
+
+void disable_Stepper_OE(){
+	HAL_GPIO_WritePin(GPIOB, GPIO_PIN_11, 0);
+}
+
+void Stepper_runStep(int num){
+	stepper_state * stepper = &steppers[num];
+	if(stepper->status != SS_STOPPED){
+//		enable_Stepper_OE();
+		HAL_TIM_PWM_Start(stepper->STEP_TIMER, stepper->STEP_CHANNEL);
+		if(stepper->home_status){
+			Stepper_Direction(stepper);
+			Stepper_SetStepTimer(stepper);
+			//			HAL_TIM_PWM_Start(stepper->STEP_TIMER, stepper->STEP_CHANNEL);
+		}
+		else {
+
+		}
+	}
+	else{
+		HAL_TIM_PWM_Stop(stepper->STEP_TIMER, stepper->STEP_CHANNEL);
+//		disable_Stepper_OE();
+	}
+}
+
+void Stepper_StartStop(int num, uint8_t j){
+	stepper_state * stepper = &steppers[num];
+	if(j == 1){
+		stepper->status = SS_STARTING;
+	}
+	else {
+		stepper->status = SS_STOPPED;
+	}
+}
+
+void Stepper_updateHome(int num, int value){
+	stepper_state * stepper = &steppers[num];
+	if(stepper->home_status == 0){
+		Set_Encoder_Zero(num);
+		stepper->home_status = value;
+		Stepper_DefaultState(num);
+		stepper -> status = SS_STARTING;
+	}
+}
+
+int8_t Stepper_Checkhome(int num){
+	stepper_state * stepper = &steppers[num];
+	return stepper->home_status;
+}
+
+void Stepper_SetHome(int num, int dir, int on){
+	stepper_state * stepper = &steppers[num];
+	if(on){
+		stepper->home_status = 0;
+		stepper->DIR_GPIO->BSRR = stepper->DIR_PIN; //BSRR change pin to set/reset
+		stepper -> STEP_TIMER -> Instance -> PSC = 5;
+		stepper -> STEP_TIMER -> Instance -> ARR = 25000;
+		stepper -> STEP_TIMER -> Instance -> CCR1 = 25000/2;
+	}
+}

@@ -1,5 +1,9 @@
 /* USER CODE BEGIN Header */
 /**
+ * 	// File name: main.c
+	// Author: KRITTAPAK
+	// Project Name: Module8-9
+	// Group name: ISUS
   ******************************************************************************
   * @file           : main.c
   * @brief          : Main program body
@@ -39,6 +43,8 @@
 /* USER CODE BEGIN PM */
 #include "QEI.h"
 #include "PID.h"
+#include "STEPPER.h"
+#include "Serial.h"
 /* USER CODE END PM */
 
 /* Private variables ---------------------------------------------------------*/
@@ -85,13 +91,16 @@ TIM_HandleTypeDef htim17;
 
 UART_HandleTypeDef huart5;
 UART_HandleTypeDef huart7;
-DMA_HandleTypeDef hdma_uart7_rx;
+DMA_HandleTypeDef hdma_uart5_rx;
+DMA_HandleTypeDef hdma_uart5_tx;
 
 PCD_HandleTypeDef hpcd_USB_OTG_FS;
 
 /* USER CODE BEGIN PV */
+uint32_t STEP_TIMER_CLOCK;
+uint32_t STEP_CONTROLLER_PERIOD_US;
+uint32_t state = 0;
 int a = 0;
-int b = 0;
 /* USER CODE END PV */
 
 /* Private function prototypes -----------------------------------------------*/
@@ -169,30 +178,74 @@ int main(void)
   MX_TIM17_Init();
   MX_UART5_Init();
   /* USER CODE BEGIN 2 */
-  setupPID(1, 10, 50, 150, 1, 2, 3);
-  setupPID(2, 110, 510, 1150, 11, 12, 13);
-  setupPID(3, 110, 510, 1510, 11, 21, 31);
-//  HAL_TIM_Encoder_Start(&htim4, TIM_CHANNEL_ALL);
+  STEP_TIMER_CLOCK = HAL_RCC_GetHCLKFreq();
+  STEP_CONTROLLER_PERIOD_US =  1000000U /(HAL_RCC_GetHCLKFreq() / htim5.Init.Period);
+
+  //htim16 stepper 1
+  //htim17 stepper 2
+  //htim13 stepper 3
+  //htim12 stepper 4
+
+
+
+  //Stepper Setup
+  Stepper_Setup(1, &htim16, TIM_CHANNEL_1, DIR1_GPIO_Port, DIR1_Pin, 0);
+  Stepper_SetMinPosition(1, 0);
+  Stepper_SetMaxPosition(1, 36000);
+  Stepper_Setup(2, &htim17, TIM_CHANNEL_1, DIR2_GPIO_Port, DIR2_Pin, 0);
+  Stepper_SetMinPosition(2, 0);
+  Stepper_SetMaxPosition(2, 36000);
+  Stepper_Setup(3, &htim13, TIM_CHANNEL_1, DIR3_GPIO_Port, DIR3_Pin, 1);
+  Stepper_SetMinPosition(3, 0);
+  Stepper_SetMaxPosition(3, 36000);
+  Stepper_Setup(4, &htim12, TIM_CHANNEL_2, DIR4_GPIO_Port, DIR4_Pin, 1);
+  Stepper_SetMinPosition(4, 0);
+  Stepper_SetMaxPosition(4, 36000);
+  Stepper_DefaultState(1);
+  Stepper_DefaultState(2);
+  Stepper_DefaultState(3);
+  Stepper_DefaultState(4);
+
+//  __HAL_TIM_ENABLE_IT(&htim12, TIM_IT_UPDATE);
+//  __HAL_TIM_ENABLE_IT(&htim13, TIM_IT_UPDATE);
+//  __HAL_TIM_ENABLE_IT(&htim16, TIM_IT_UPDATE);
+
+  //Timer Interrupt Control
+  HAL_TIM_Base_Start_IT(&htim5);
+
+  //PID Setup
+  setupPID(1, 0.05, -3200, 3200, 1, 0, 0);
+  setupPID(2, 0.05, -3200, 3200, 1, 0, 0);
+  setupPID(3, 0.05, -3200, 3200, 1, 0, 0);
+  setupPID(4, 0.05, -3200, 3200, 1, 0, 0);
+
+  //Encoder Setup
   Encoder_Start(1, &htim1, TIM_CHANNEL_ALL);
   Encoder_Start(2, &htim3, TIM_CHANNEL_ALL);
   Encoder_Start(3, &htim4, TIM_CHANNEL_ALL);
-//  HAL_TIM_PWM_Start(&htim13, TIM_CHANNEL_1);
-//  __HAL_TIM_SET_COMPARE(&htim13, TIM_CHANNEL_1, 0);
-  //htim12 DIR PF5
-  //htim13 DIR PF4
-  //htim16 DIR PE8
-  //htim17 DIR PF10
-  setupStepper(1, &htim12, TIM_CHANNEL_2, GPIOF, GPIO_PIN_5);
-  setupStepper(2, &htim13, TIM_CHANNEL_1, GPIOF, GPIO_PIN_4);
-  setupStepper(3, &htim16, TIM_CHANNEL_1, GPIOE, GPIO_PIN_8);
+  Encoder_Start(4, &htim2, TIM_CHANNEL_ALL);
+
+  // Uart
+  Serial_Setup(1, &huart5);
+  Serial_Setup(2, &huart7);
+
   /* USER CODE END 2 */
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
-//	  a = __HAL_TIM_GET_COUNTER(&htim4);
-//	  b = (TIM4->CNT);
+//	  a = HAL_GPIO_ReadPin(PROXIMITY2_GPIO_Port, PROXIMITY2_Pin);
+	  if(state){
+		  Stepper_runStep(1);
+		  Stepper_runStep(2);
+		  Stepper_runStep(3);
+		  Stepper_runStep(4);
+		  state = 0;
+	  }
+
+	  selectPacket(1);
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
@@ -229,8 +282,8 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.HSI48State = RCC_HSI48_ON;
   RCC_OscInitStruct.PLL.PLLState = RCC_PLL_ON;
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
-  RCC_OscInitStruct.PLL.PLLM = 32;
-  RCC_OscInitStruct.PLL.PLLN = 129;
+  RCC_OscInitStruct.PLL.PLLM = 4;
+  RCC_OscInitStruct.PLL.PLLN = 25;
   RCC_OscInitStruct.PLL.PLLP = 2;
   RCC_OscInitStruct.PLL.PLLQ = 4;
   RCC_OscInitStruct.PLL.PLLR = 2;
@@ -248,9 +301,9 @@ void SystemClock_Config(void)
                               |RCC_CLOCKTYPE_D3PCLK1|RCC_CLOCKTYPE_D1PCLK1;
   RCC_ClkInitStruct.SYSCLKSource = RCC_SYSCLKSOURCE_PLLCLK;
   RCC_ClkInitStruct.SYSCLKDivider = RCC_SYSCLK_DIV1;
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_HCLK_DIV1;
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_HCLK_DIV2;
   RCC_ClkInitStruct.APB3CLKDivider = RCC_APB3_DIV1;
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_APB1_DIV1;
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_APB1_DIV2;
   RCC_ClkInitStruct.APB2CLKDivider = RCC_APB2_DIV1;
   RCC_ClkInitStruct.APB4CLKDivider = RCC_APB4_DIV1;
 
@@ -280,7 +333,7 @@ static void MX_ADC3_Init(void)
   /** Common config
   */
   hadc3.Instance = ADC3;
-  hadc3.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV1;
+  hadc3.Init.ClockPrescaler = ADC_CLOCK_ASYNC_DIV4;
   hadc3.Init.Resolution = ADC_RESOLUTION_16B;
   hadc3.Init.ScanConvMode = ADC_SCAN_DISABLE;
   hadc3.Init.EOCSelection = ADC_EOC_SINGLE_CONV;
@@ -300,7 +353,7 @@ static void MX_ADC3_Init(void)
   }
   /** Configure Regular Channel
   */
-  sConfig.Channel = ADC_CHANNEL_0;
+  sConfig.Channel = ADC_CHANNEL_1;
   sConfig.Rank = ADC_REGULAR_RANK_1;
   sConfig.SamplingTime = ADC_SAMPLETIME_1CYCLE_5;
   sConfig.SingleDiff = ADC_SINGLE_ENDED;
@@ -588,11 +641,11 @@ static void MX_TIM4_Init(void)
   sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
   sConfig.IC1Selection = TIM_ICSELECTION_DIRECTTI;
   sConfig.IC1Prescaler = TIM_ICPSC_DIV1;
-  sConfig.IC1Filter = 10;
+  sConfig.IC1Filter = 0;
   sConfig.IC2Polarity = TIM_ICPOLARITY_RISING;
   sConfig.IC2Selection = TIM_ICSELECTION_DIRECTTI;
   sConfig.IC2Prescaler = TIM_ICPSC_DIV1;
-  sConfig.IC2Filter = 10;
+  sConfig.IC2Filter = 0;
   if (HAL_TIM_Encoder_Init(&htim4, &sConfig) != HAL_OK)
   {
     Error_Handler();
@@ -630,7 +683,7 @@ static void MX_TIM5_Init(void)
   htim5.Instance = TIM5;
   htim5.Init.Prescaler = 0;
   htim5.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim5.Init.Period = 4294967295;
+  htim5.Init.Period = 50000;
   htim5.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim5.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
   if (HAL_TIM_Base_Init(&htim5) != HAL_OK)
@@ -666,6 +719,7 @@ static void MX_TIM12_Init(void)
 
   /* USER CODE END TIM12_Init 0 */
 
+  TIM_ClockConfigTypeDef sClockSourceConfig = {0};
   TIM_OC_InitTypeDef sConfigOC = {0};
 
   /* USER CODE BEGIN TIM12_Init 1 */
@@ -674,15 +728,24 @@ static void MX_TIM12_Init(void)
   htim12.Instance = TIM12;
   htim12.Init.Prescaler = 0;
   htim12.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim12.Init.Period = 65535;
+  htim12.Init.Period = 62500;
   htim12.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim12.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
+  if (HAL_TIM_Base_Init(&htim12) != HAL_OK)
+  {
+    Error_Handler();
+  }
+  sClockSourceConfig.ClockSource = TIM_CLOCKSOURCE_INTERNAL;
+  if (HAL_TIM_ConfigClockSource(&htim12, &sClockSourceConfig) != HAL_OK)
+  {
+    Error_Handler();
+  }
   if (HAL_TIM_PWM_Init(&htim12) != HAL_OK)
   {
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 0;
+  sConfigOC.Pulse = 31250;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim12, &sConfigOC, TIM_CHANNEL_2) != HAL_OK)
@@ -716,7 +779,7 @@ static void MX_TIM13_Init(void)
   htim13.Instance = TIM13;
   htim13.Init.Prescaler = 0;
   htim13.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim13.Init.Period = 65535;
+  htim13.Init.Period = 62500;
   htim13.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim13.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
   if (HAL_TIM_Base_Init(&htim13) != HAL_OK)
@@ -728,7 +791,7 @@ static void MX_TIM13_Init(void)
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 0;
+  sConfigOC.Pulse = 31250;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
   if (HAL_TIM_PWM_ConfigChannel(&htim13, &sConfigOC, TIM_CHANNEL_1) != HAL_OK)
@@ -763,7 +826,7 @@ static void MX_TIM16_Init(void)
   htim16.Instance = TIM16;
   htim16.Init.Prescaler = 0;
   htim16.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim16.Init.Period = 65535;
+  htim16.Init.Period = 62500;
   htim16.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim16.Init.RepetitionCounter = 0;
   htim16.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
@@ -776,7 +839,7 @@ static void MX_TIM16_Init(void)
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 0;
+  sConfigOC.Pulse = 31250;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
@@ -826,7 +889,7 @@ static void MX_TIM17_Init(void)
   htim17.Instance = TIM17;
   htim17.Init.Prescaler = 0;
   htim17.Init.CounterMode = TIM_COUNTERMODE_UP;
-  htim17.Init.Period = 65535;
+  htim17.Init.Period = 62500;
   htim17.Init.ClockDivision = TIM_CLOCKDIVISION_DIV1;
   htim17.Init.RepetitionCounter = 0;
   htim17.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
@@ -839,7 +902,7 @@ static void MX_TIM17_Init(void)
     Error_Handler();
   }
   sConfigOC.OCMode = TIM_OCMODE_PWM1;
-  sConfigOC.Pulse = 0;
+  sConfigOC.Pulse = 31250;
   sConfigOC.OCPolarity = TIM_OCPOLARITY_HIGH;
   sConfigOC.OCNPolarity = TIM_OCNPOLARITY_HIGH;
   sConfigOC.OCFastMode = TIM_OCFAST_DISABLE;
@@ -884,7 +947,7 @@ static void MX_UART5_Init(void)
 
   /* USER CODE END UART5_Init 1 */
   huart5.Instance = UART5;
-  huart5.Init.BaudRate = 115200;
+  huart5.Init.BaudRate = 1000000;
   huart5.Init.WordLength = UART_WORDLENGTH_8B;
   huart5.Init.StopBits = UART_STOPBITS_1;
   huart5.Init.Parity = UART_PARITY_NONE;
@@ -932,7 +995,7 @@ static void MX_UART7_Init(void)
 
   /* USER CODE END UART7_Init 1 */
   huart7.Instance = UART7;
-  huart7.Init.BaudRate = 115200;
+  huart7.Init.BaudRate = 1000000;
   huart7.Init.WordLength = UART_WORDLENGTH_8B;
   huart7.Init.StopBits = UART_STOPBITS_1;
   huart7.Init.Parity = UART_PARITY_NONE;
@@ -1026,6 +1089,9 @@ static void MX_DMA_Init(void)
   __HAL_RCC_DMA1_CLK_ENABLE();
 
   /* DMA interrupt init */
+  /* DMA1_Stream0_IRQn interrupt configuration */
+  HAL_NVIC_SetPriority(DMA1_Stream0_IRQn, 0, 0);
+  HAL_NVIC_EnableIRQ(DMA1_Stream0_IRQn);
   /* DMA1_Stream1_IRQn interrupt configuration */
   HAL_NVIC_SetPriority(DMA1_Stream1_IRQn, 0, 0);
   HAL_NVIC_EnableIRQ(DMA1_Stream1_IRQn);
@@ -1052,17 +1118,17 @@ static void MX_GPIO_Init(void)
   __HAL_RCC_GPIOD_CLK_ENABLE();
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOF, GPIO_PIN_4|GPIO_PIN_5|GPIO_PIN_9|GPIO_PIN_10, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOF, DIR2_Pin|DIR1_Pin|GPIO_PIN_9|DIR4_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOB, LD1_Pin|GPIO_PIN_10|GPIO_PIN_11|LD3_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOB, LD1_Pin|OE_ENCODER_Pin|OE_STEPPER_Pin|LD3_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(GPIOG, GPIO_PIN_1|GPIO_PIN_5|GPIO_PIN_6|GPIO_PIN_7
                           |GPIO_PIN_8, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
-  HAL_GPIO_WritePin(GPIOE, GPIO_PIN_8|LD2_Pin, GPIO_PIN_RESET);
+  HAL_GPIO_WritePin(GPIOE, DIR3_Pin|LD2_Pin, GPIO_PIN_RESET);
 
   /*Configure GPIO pin Output Level */
   HAL_GPIO_WritePin(USB_OTG_FS_PWR_EN_GPIO_Port, USB_OTG_FS_PWR_EN_Pin, GPIO_PIN_RESET);
@@ -1073,15 +1139,15 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(B1_GPIO_Port, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PF4 PF5 PF9 PF10 */
-  GPIO_InitStruct.Pin = GPIO_PIN_4|GPIO_PIN_5|GPIO_PIN_9|GPIO_PIN_10;
+  /*Configure GPIO pins : DIR2_Pin DIR1_Pin PF9 DIR4_Pin */
+  GPIO_InitStruct.Pin = DIR2_Pin|DIR1_Pin|GPIO_PIN_9|DIR4_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOF, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : LD1_Pin PB10 PB11 LD3_Pin */
-  GPIO_InitStruct.Pin = LD1_Pin|GPIO_PIN_10|GPIO_PIN_11|LD3_Pin;
+  /*Configure GPIO pins : LD1_Pin OE_ENCODER_Pin OE_STEPPER_Pin LD3_Pin */
+  GPIO_InitStruct.Pin = LD1_Pin|OE_ENCODER_Pin|OE_STEPPER_Pin|LD3_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -1096,8 +1162,8 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
   HAL_GPIO_Init(GPIOG, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PE8 LD2_Pin */
-  GPIO_InitStruct.Pin = GPIO_PIN_8|LD2_Pin;
+  /*Configure GPIO pins : DIR3_Pin LD2_Pin */
+  GPIO_InitStruct.Pin = DIR3_Pin|LD2_Pin;
   GPIO_InitStruct.Mode = GPIO_MODE_OUTPUT_PP;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   GPIO_InitStruct.Speed = GPIO_SPEED_FREQ_LOW;
@@ -1124,11 +1190,15 @@ static void MX_GPIO_Init(void)
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOG, &GPIO_InitStruct);
 
-  /*Configure GPIO pins : PD3 PD4 PD5 PD6
-                           PD7 */
-  GPIO_InitStruct.Pin = GPIO_PIN_3|GPIO_PIN_4|GPIO_PIN_5|GPIO_PIN_6
-                          |GPIO_PIN_7;
+  /*Configure GPIO pin : PD3 */
+  GPIO_InitStruct.Pin = GPIO_PIN_3;
   GPIO_InitStruct.Mode = GPIO_MODE_IT_RISING;
+  GPIO_InitStruct.Pull = GPIO_NOPULL;
+  HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
+
+  /*Configure GPIO pins : PROXIMITY1_Pin PROXIMITY2_Pin PROXIMITY3_Pin PROXIMITY4_Pin */
+  GPIO_InitStruct.Pin = PROXIMITY1_Pin|PROXIMITY2_Pin|PROXIMITY3_Pin|PROXIMITY4_Pin;
+  GPIO_InitStruct.Mode = GPIO_MODE_IT_FALLING;
   GPIO_InitStruct.Pull = GPIO_NOPULL;
   HAL_GPIO_Init(GPIOD, &GPIO_InitStruct);
 
@@ -1142,6 +1212,36 @@ static void MX_GPIO_Init(void)
 }
 
 /* USER CODE BEGIN 4 */
+
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart){
+	if(huart==&huart5){
+		data_in(1);
+	}
+	if(huart==&huart7){
+		data_in(2);
+	}
+}
+void HAL_TIM_PeriodElapsedCallback(TIM_HandleTypeDef *htim){
+	if(htim == &htim5){
+		state = 1;
+	}
+}
+
+void HAL_GPIO_EXTI_Callback(uint16_t GPIO_Pin)
+{
+    if(GPIO_Pin == GPIO_PIN_4) // If The INT Source Is EXTI Line9 (A9 Pin)
+    {
+    	Stepper_updateHome(1, 1);
+    }
+    if(GPIO_Pin == GPIO_PIN_5) // If The INT Source Is EXTI Line9 (A9 Pin)
+    {
+    	Stepper_updateHome(2, 1);
+    }
+    if(GPIO_Pin == GPIO_PIN_6) // If The INT Source Is EXTI Line9 (A9 Pin)
+    {
+    	Stepper_updateHome(3, 1);
+    }
+}
 
 /* USER CODE END 4 */
 
