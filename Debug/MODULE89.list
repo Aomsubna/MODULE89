@@ -31,23 +31,23 @@ Idx Name          Size      VMA       LMA       File off  Algn
                   ALLOC
  13 .ARM.attributes 0000002e  00000000  00000000  000200d0  2**0
                   CONTENTS, READONLY
- 14 .debug_info   00030455  00000000  00000000  000200fe  2**0
+ 14 .debug_info   00030451  00000000  00000000  000200fe  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 15 .debug_abbrev 000044cc  00000000  00000000  00050553  2**0
+ 15 .debug_abbrev 000044dd  00000000  00000000  0005054f  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 16 .debug_aranges 00001a28  00000000  00000000  00054a20  2**3
+ 16 .debug_aranges 00001a28  00000000  00000000  00054a30  2**3
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 17 .debug_ranges 000018d0  00000000  00000000  00056448  2**3
+ 17 .debug_ranges 000018d0  00000000  00000000  00056458  2**3
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 18 .debug_macro  0003b4a2  00000000  00000000  00057d18  2**0
+ 18 .debug_macro  0003b4a2  00000000  00000000  00057d28  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 19 .debug_line   00020dd7  00000000  00000000  000931ba  2**0
+ 19 .debug_line   00020f30  00000000  00000000  000931ca  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 20 .debug_str    00180ec3  00000000  00000000  000b3f91  2**0
+ 20 .debug_str    00180eb1  00000000  00000000  000b40fa  2**0
                   CONTENTS, READONLY, DEBUGGING, OCTETS
- 21 .comment      00000053  00000000  00000000  00234e54  2**0
+ 21 .comment      00000053  00000000  00000000  00234fab  2**0
                   CONTENTS, READONLY
- 22 .debug_frame  00007198  00000000  00000000  00234ea8  2**2
+ 22 .debug_frame  00007198  00000000  00000000  00235000  2**2
                   CONTENTS, READONLY, DEBUGGING, OCTETS
 
 Disassembly of section .text:
@@ -813,11 +813,11 @@ void SystemClock_Config(void)
   RCC_OscInitStruct.PLL.PLLSource = RCC_PLLSOURCE_HSI;
  80008f0:	2300      	movs	r3, #0
  80008f2:	64fb      	str	r3, [r7, #76]	; 0x4c
-  RCC_OscInitStruct.PLL.PLLM = 4;
- 80008f4:	2304      	movs	r3, #4
+  RCC_OscInitStruct.PLL.PLLM = 32;
+ 80008f4:	2320      	movs	r3, #32
  80008f6:	653b      	str	r3, [r7, #80]	; 0x50
-  RCC_OscInitStruct.PLL.PLLN = 25;
- 80008f8:	2319      	movs	r3, #25
+  RCC_OscInitStruct.PLL.PLLN = 129;
+ 80008f8:	2381      	movs	r3, #129	; 0x81
  80008fa:	657b      	str	r3, [r7, #84]	; 0x54
   RCC_OscInitStruct.PLL.PLLP = 2;
  80008fc:	2302      	movs	r3, #2
@@ -861,14 +861,14 @@ void SystemClock_Config(void)
   RCC_ClkInitStruct.SYSCLKDivider = RCC_SYSCLK_DIV1;
  8000930:	2300      	movs	r3, #0
  8000932:	60fb      	str	r3, [r7, #12]
-  RCC_ClkInitStruct.AHBCLKDivider = RCC_HCLK_DIV2;
- 8000934:	2308      	movs	r3, #8
+  RCC_ClkInitStruct.AHBCLKDivider = RCC_HCLK_DIV1;
+ 8000934:	2300      	movs	r3, #0
  8000936:	613b      	str	r3, [r7, #16]
   RCC_ClkInitStruct.APB3CLKDivider = RCC_APB3_DIV1;
  8000938:	2300      	movs	r3, #0
  800093a:	617b      	str	r3, [r7, #20]
-  RCC_ClkInitStruct.APB1CLKDivider = RCC_APB1_DIV2;
- 800093c:	2340      	movs	r3, #64	; 0x40
+  RCC_ClkInitStruct.APB1CLKDivider = RCC_APB1_DIV1;
+ 800093c:	2300      	movs	r3, #0
  800093e:	61bb      	str	r3, [r7, #24]
   RCC_ClkInitStruct.APB2CLKDivider = RCC_APB2_DIV1;
  8000940:	2300      	movs	r3, #0
@@ -1343,8 +1343,8 @@ static void MX_TIM1_Init(void)
  8000bcc:	4b19      	ldr	r3, [pc, #100]	; (8000c34 <MX_TIM1_Init+0xac>)
  8000bce:	2200      	movs	r2, #0
  8000bd0:	619a      	str	r2, [r3, #24]
-  sConfig.EncoderMode = TIM_ENCODERMODE_TI1;
- 8000bd2:	2301      	movs	r3, #1
+  sConfig.EncoderMode = TIM_ENCODERMODE_TI12;
+ 8000bd2:	2303      	movs	r3, #3
  8000bd4:	60fb      	str	r3, [r7, #12]
   sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
  8000bd6:	2300      	movs	r3, #0
@@ -1593,8 +1593,8 @@ static void MX_TIM3_Init(void)
  8000d22:	4b19      	ldr	r3, [pc, #100]	; (8000d88 <MX_TIM3_Init+0xa4>)
  8000d24:	2200      	movs	r2, #0
  8000d26:	619a      	str	r2, [r3, #24]
-  sConfig.EncoderMode = TIM_ENCODERMODE_TI1;
- 8000d28:	2301      	movs	r3, #1
+  sConfig.EncoderMode = TIM_ENCODERMODE_TI12;
+ 8000d28:	2303      	movs	r3, #3
  8000d2a:	60fb      	str	r3, [r7, #12]
   sConfig.IC1Polarity = TIM_ICPOLARITY_RISING;
  8000d2c:	2300      	movs	r3, #0
@@ -1948,9 +1948,9 @@ static void MX_TIM12_Init(void)
  8000f0a:	4b14      	ldr	r3, [pc, #80]	; (8000f5c <MX_TIM12_Init+0x84>)
  8000f0c:	2200      	movs	r2, #0
  8000f0e:	611a      	str	r2, [r3, #16]
-  htim12.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  htim12.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
  8000f10:	4b12      	ldr	r3, [pc, #72]	; (8000f5c <MX_TIM12_Init+0x84>)
- 8000f12:	2200      	movs	r2, #0
+ 8000f12:	2280      	movs	r2, #128	; 0x80
  8000f14:	619a      	str	r2, [r3, #24]
   if (HAL_TIM_PWM_Init(&htim12) != HAL_OK)
  8000f16:	4811      	ldr	r0, [pc, #68]	; (8000f5c <MX_TIM12_Init+0x84>)
@@ -2036,9 +2036,9 @@ static void MX_TIM13_Init(void)
  8000f7c:	4b1e      	ldr	r3, [pc, #120]	; (8000ff8 <MX_TIM13_Init+0x94>)
  8000f7e:	4a1f      	ldr	r2, [pc, #124]	; (8000ffc <MX_TIM13_Init+0x98>)
  8000f80:	601a      	str	r2, [r3, #0]
-  htim13.Init.Prescaler = 50;
+  htim13.Init.Prescaler = 0;
  8000f82:	4b1d      	ldr	r3, [pc, #116]	; (8000ff8 <MX_TIM13_Init+0x94>)
- 8000f84:	2232      	movs	r2, #50	; 0x32
+ 8000f84:	2200      	movs	r2, #0
  8000f86:	605a      	str	r2, [r3, #4]
   htim13.Init.CounterMode = TIM_COUNTERMODE_UP;
  8000f88:	4b1b      	ldr	r3, [pc, #108]	; (8000ff8 <MX_TIM13_Init+0x94>)
@@ -2052,9 +2052,9 @@ static void MX_TIM13_Init(void)
  8000f96:	4b18      	ldr	r3, [pc, #96]	; (8000ff8 <MX_TIM13_Init+0x94>)
  8000f98:	2200      	movs	r2, #0
  8000f9a:	611a      	str	r2, [r3, #16]
-  htim13.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  htim13.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
  8000f9c:	4b16      	ldr	r3, [pc, #88]	; (8000ff8 <MX_TIM13_Init+0x94>)
- 8000f9e:	2200      	movs	r2, #0
+ 8000f9e:	2280      	movs	r2, #128	; 0x80
  8000fa0:	619a      	str	r2, [r3, #24]
   if (HAL_TIM_Base_Init(&htim13) != HAL_OK)
  8000fa2:	4815      	ldr	r0, [pc, #84]	; (8000ff8 <MX_TIM13_Init+0x94>)
@@ -2176,9 +2176,9 @@ static void MX_TIM16_Init(void)
  8001046:	4b29      	ldr	r3, [pc, #164]	; (80010ec <MX_TIM16_Init+0xec>)
  8001048:	2200      	movs	r2, #0
  800104a:	615a      	str	r2, [r3, #20]
-  htim16.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  htim16.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
  800104c:	4b27      	ldr	r3, [pc, #156]	; (80010ec <MX_TIM16_Init+0xec>)
- 800104e:	2200      	movs	r2, #0
+ 800104e:	2280      	movs	r2, #128	; 0x80
  8001050:	619a      	str	r2, [r3, #24]
   if (HAL_TIM_Base_Init(&htim16) != HAL_OK)
  8001052:	4826      	ldr	r0, [pc, #152]	; (80010ec <MX_TIM16_Init+0xec>)
@@ -2345,9 +2345,9 @@ static void MX_TIM17_Init(void)
  800113a:	4b29      	ldr	r3, [pc, #164]	; (80011e0 <MX_TIM17_Init+0xec>)
  800113c:	2200      	movs	r2, #0
  800113e:	615a      	str	r2, [r3, #20]
-  htim17.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_DISABLE;
+  htim17.Init.AutoReloadPreload = TIM_AUTORELOAD_PRELOAD_ENABLE;
  8001140:	4b27      	ldr	r3, [pc, #156]	; (80011e0 <MX_TIM17_Init+0xec>)
- 8001142:	2200      	movs	r2, #0
+ 8001142:	2280      	movs	r2, #128	; 0x80
  8001144:	619a      	str	r2, [r3, #24]
   if (HAL_TIM_Base_Init(&htim17) != HAL_OK)
  8001146:	4826      	ldr	r0, [pc, #152]	; (80011e0 <MX_TIM17_Init+0xec>)
@@ -3308,7 +3308,7 @@ void HAL_ADC_MspInit(ADC_HandleTypeDef* hadc)
     PeriphClkInitStruct.PLL3.PLL3VCOSEL = RCC_PLL3VCOMEDIUM;
  800171a:	f44f 7300 	mov.w	r3, #512	; 0x200
  800171e:	657b      	str	r3, [r7, #84]	; 0x54
-    PeriphClkInitStruct.PLL3.PLL3FRACN = 3072;
+    PeriphClkInitStruct.PLL3.PLL3FRACN = 3072.0;
  8001720:	f44f 6340 	mov.w	r3, #3072	; 0xc00
  8001724:	65bb      	str	r3, [r7, #88]	; 0x58
     PeriphClkInitStruct.AdcClockSelection = RCC_ADCCLKSOURCE_PLL3;

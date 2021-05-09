@@ -1,0 +1,3 @@
+TRAJECTORY.c:11:6:setuptrajectory	40	static
+TRAJECTORY.c:22:7:calculationsetup	72	static
+TRAJECTORY.c:36:7:calculationtrajectory	56	static
